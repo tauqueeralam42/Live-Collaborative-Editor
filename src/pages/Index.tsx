@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { personas, type Persona } from "@/data/personas";
-import { generateAIResponse } from "@/utils/aiResponse";
+import { generateAIResponse } from "@/utils/aiService";
+import type { AIOperation } from "@/utils/aiService";
 import TextEditor from "@/components/Editor/TextEditor";
 import FloatingToolbar from "@/components/Editor/FloatingToolbar";
 import PreviewModal from "@/components/Editor/PreviewModal";
@@ -77,26 +78,30 @@ const Index = () => {
 
   const handleToolbarAction = async (action: string) => {
     setIsLoading(true);
-    let prompt = '';
+    let operation: AIOperation = 'edit';
     
     switch (action) {
       case 'edit':
-        prompt = 'Please improve this text while maintaining its meaning: ' + selectedText;
+        operation = 'edit';
         break;
       case 'table':
-        prompt = 'Convert this text into a markdown table format: ' + selectedText;
+        operation = 'table';
         break;
       case 'shorten':
-        prompt = 'Shorten this text while keeping the main points: ' + selectedText;
+        operation = 'shorten';
         break;
       case 'length':
-        prompt = 'Expand this text with more details and explanations: ' + selectedText;
+        operation = 'lengthen';
         break;
     }
 
     try {
-      const response = await generateAIResponse(prompt, [activePersona], 0.7, 'default');
-      setAiSuggestion(response as string);
+      const response = await generateAIResponse({
+        text: selectedText,
+        operation: operation,
+        temperature: 0.7
+      });
+      setAiSuggestion(response);
       setShowPreview(true);
     } catch (error) {
       console.error('Error generating AI response:', error);
@@ -109,18 +114,26 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const response = await generateAIResponse(
-        "Say hello and introduce yourself briefly",
-        [activePersona],
-        0.7,
-        'default'
-      );
-      addMessage(response as string, activePersona.id);
+      const response = await generateAIResponse({
+        text: "Say hello and introduce yourself briefly",
+        operation: 'chat',
+        temperature: 0.7
+      });
+      addMessage(response, activePersona.id);
     } catch (error) {
       console.error("Error getting welcome message:", error);
       addMessage(
-        `Hello! How can I help you today?`,
-        activePersonas[0]?.id || "system"
+        `Hello! I'm Tauqueer, your AI programming assistant. I can help you with:
+- Writing code in various languages (C++, Python, Java, etc.)
+- Explaining programming concepts
+- Debugging and improving code
+- Answering programming questions
+
+Feel free to ask me anything! For example:
+- "Write a C++ function to add two numbers"
+- "Help me understand arrays in Python"
+- "Debug this Java code"`,
+        activePersona.id
       );
     } finally {
       setIsLoading(false);
@@ -134,16 +147,43 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const response = await generateAIResponse(
-        message,
-        [activePersona],
-        0.7,
-        'default'
-      );
-      addMessage(response as string, activePersona.id);
+      // Check if message is code-related
+      const isCodeCommand = /^(write|check|modify|fix|review|add|update|implement|create|show|edit) code/i.test(message);
+      
+      let response;
+      // Check for any programming-related keywords, not just commands
+      const isProgrammingQuery = /(c\+\+|python|java|javascript|function|program|code|algorithm)/i.test(message);
+      
+      if (isCodeCommand || isProgrammingQuery) {
+        // Get current editor content for context
+        const currentCode = editorRef.current?.getValue() || '';
+        
+        response = await generateAIResponse({
+          text: message,
+          operation: 'chat', // Changed to 'chat' to handle code generation better
+          temperature: 0.7
+        });
+
+        // If response contains code blocks, extract and update editor
+        const codeMatch = response.match(/```(?:\w+)?\n([\s\S]*?)```/);
+        if (codeMatch && codeMatch[1]) {
+          // Update editor content
+          editorRef.current?.setValue(codeMatch[1].trim());
+          response = "I've updated the code editor with the requested changes. " + 
+                    response.replace(/```(?:\w+)?\n[\s\S]*?```/, '').trim();
+        }
+      } else {
+        response = await generateAIResponse({
+          text: message,
+          operation: 'chat',
+          temperature: 0.7
+        });
+      }
+      
+      addMessage(response, activePersona.id);
     } catch (error) {
       console.error("Error generating response:", error);
-      addMessage("Sorry, I couldn't process that message.", "system");
+      addMessage("Sorry, I couldn't process that message.", activePersona.id);
     } finally {
       setIsLoading(false);
     }

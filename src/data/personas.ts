@@ -65,7 +65,7 @@ export interface Persona {
 export const personas: Persona[] = [
   {
     id: "tauqueer",
-    name: "Tauqueer Alam",
+    name: "Tauqueer",
     title: "Software Developer & Tech Enthusiast",
     age: 22,
     location: "Bihar, India",

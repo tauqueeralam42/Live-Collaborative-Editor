@@ -59,7 +59,7 @@
   }
 
   .message-bubble {
-    @apply rounded-2xl p-3 shadow-sm max-w-[85%];
+    @apply rounded-2xl p-4 shadow-sm max-w-[85%] break-words;
   }
 
   .user-message {
@@ -67,7 +67,19 @@
   }
 
   .ai-message {
-    @apply message-bubble bg-dark-50 text-white mr-auto;
+    @apply message-bubble bg-dark-50 text-white mr-auto whitespace-pre-wrap;
+  }
+
+  .ai-message p {
+    @apply whitespace-pre-wrap break-words;
+  }
+
+  .ai-message pre {
+    @apply mt-2 mb-2 rounded-lg bg-dark-200 p-4 overflow-x-auto;
+  }
+
+  .ai-message code {
+    @apply font-mono text-sm;
   }
 
   .animate-entry {

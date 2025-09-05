@@ -9,11 +9,18 @@ interface TextEditorProps {
     endColumn: number;
   }) => void;
   onEditorMount?: (editor: any) => void;
+  initialValue?: string;
+  onChange?: (value: string) => void;
 }
 
-const TextEditor: React.FC<TextEditorProps> = ({ onTextSelect, onEditorMount }) => {
+const TextEditor: React.FC<TextEditorProps> = ({ 
+  onTextSelect, 
+  onEditorMount, 
+  initialValue = '// Type your code here...',
+  onChange 
+}) => {
   const editorRef = useRef(null);
-  const [value, setValue] = useState('// Type your code here...');
+  const [value, setValue] = useState(initialValue);
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
@@ -22,7 +29,9 @@ const TextEditor: React.FC<TextEditorProps> = ({ onTextSelect, onEditorMount }) 
     }
     
     editor.onDidChangeModelContent(() => {
-      setValue(editor.getValue());
+      const newValue = editor.getValue();
+      setValue(newValue);
+      onChange?.(newValue);
     });
 
     editor.onDidChangeCursorSelection((e: any) => {

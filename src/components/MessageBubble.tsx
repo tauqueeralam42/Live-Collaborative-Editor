@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { type Persona } from "@/data/personas";
+import { extractCodeBlocks } from "@/utils/codeBlockParser";
 
 interface MessageProps {
   message: {
@@ -11,6 +13,7 @@ interface MessageProps {
     timestamp: Date;
   };
   personas: Persona[];
+  onCodeConfirmation?: (code: string) => Promise<boolean>;
 }
 
 const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
@@ -36,8 +39,8 @@ const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
   if (isUserMessage) {
     return (
       <div className="flex flex-col items-end mb-4 animate-entry">
-        <div className="user-message">
-          <p className="text-white">{message.content}</p>
+        <div className="user-message max-w-[85%]">
+          <p className="text-white whitespace-pre-wrap break-words">{message.content}</p>
         </div>
         <span className="text-xs text-muted-foreground mt-1 mr-2">
           {format(message.timestamp, "h:mm a")}
@@ -56,7 +59,10 @@ const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
         </Avatar>
         <div className="flex flex-col">
           <div className="ai-message">
-            <p className="text-white">{message.content}</p>
+            <MessageContent 
+              content={message.content} 
+              onCodeConfirmation={onCodeConfirmation}
+            />
           </div>
           <span className="text-xs text-muted-foreground mt-1 ml-2">
             Group • {format(message.timestamp, "h:mm a")}
@@ -66,14 +72,34 @@ const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
     );
   }
 
+  // Helper function to format the message content
+  const formatMessageContent = (content: string) => {
+    // Split content by newlines and bullet points
+    return content.split(/\n|•/).map((line, index) => {
+      line = line.trim();
+      if (!line) return null;
+      
+      if (line.startsWith('- ') || line.startsWith('• ')) {
+        return (
+          <div key={index} className="ml-4 my-1">
+            • {line.substring(2)}
+          </div>
+        );
+      }
+      return <div key={index} className="my-1">{line}</div>;
+    }).filter(Boolean);
+  };
+
   return (
-    <div className="flex gap-3 mb-4 animate-entry">
-      <Avatar className="h-8 w-8 mt-1">
+    <div className="flex gap-3 mb-4 animate-entry max-w-full">
+      <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
         <img src={persona?.avatar} alt={persona?.name} />
       </Avatar>
-      <div className="flex flex-col">
+      <div className="flex flex-col flex-grow min-w-0">
         <div className="ai-message">
-          <p className="text-white">{message.content}</p>
+          <div className="text-white whitespace-pre-wrap break-words">
+            {formatMessageContent(message.content)}
+          </div>
         </div>
         <span className="text-xs text-muted-foreground mt-1 ml-2">
           {persona?.name} • {format(message.timestamp, "h:mm a")}
