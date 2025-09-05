@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { type Persona } from "@/data/personas";
 import { extractCodeBlocks } from "@/utils/codeBlockParser";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
 
 interface MessageProps {
   message: {
@@ -72,21 +82,92 @@ const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
     );
   }
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentCode, setCurrentCode] = useState('');
+
+  const handleCodeBlock = (code: string) => {
+    setCurrentCode(code);
+    setDialogOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (onCodeConfirmation) {
+      await onCodeConfirmation(currentCode);
+    }
+    setDialogOpen(false);
+  };
+
   // Helper function to format the message content
   const formatMessageContent = (content: string) => {
-    // Split content by newlines and bullet points
+    // First check if it's a confirmation message from the AI
+    if (content.includes("Would you like me to show you the code solution?")) {
+      return content.split(/\n/).map((line, index) => (
+        <div key={`text-${index}`} className="my-1">{line}</div>
+      ));
+    }
+
+    const codeBlockRegex = /```([\s\S]*?)```/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+      // Add text before code block
+      if (match.index > lastIndex) {
+        const textContent = content.slice(lastIndex, match.index);
+        parts.push(...formatTextContent(textContent));
+      }
+
+      // Add code block
+      const code = match[1].trim();
+      parts.push(
+        <div key={`code-${match.index}`} className="relative">
+          <pre className="bg-muted p-4 rounded-lg my-2 overflow-x-auto">
+            <code>{code}</code>
+          </pre>
+          <button
+            onClick={() => handleCodeBlock(code)}
+            className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs hover:bg-primary/90"
+          >
+            Add to Panel
+          </button>
+        </div>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < content.length) {
+      const textContent = content.slice(lastIndex);
+      parts.push(...formatTextContent(textContent));
+    }
+
+    return parts;
+  };
+
+  // Helper function to format text content
+  const formatTextContent = (content: string) => {
+    // Check if it's a question or confirmation message
+    if (content.includes("Would you like me to show you the code solution?") ||
+        content.includes("Would you like me to add this code to the coding panel?")) {
+      return content.split(/\n/).map((line, index) => 
+        <div key={`text-${index}`} className="my-1">{line}</div>
+      );
+    }
+
     return content.split(/\n|•/).map((line, index) => {
       line = line.trim();
       if (!line) return null;
       
       if (line.startsWith('- ') || line.startsWith('• ')) {
         return (
-          <div key={index} className="ml-4 my-1">
+          <div key={`text-${index}`} className="ml-4 my-1">
             • {line.substring(2)}
           </div>
         );
       }
-      return <div key={index} className="my-1">{line}</div>;
+      return <div key={`text-${index}`} className="my-1">{line}</div>;
     }).filter(Boolean);
   };
 
@@ -104,6 +185,28 @@ const MessageBubble: React.FC<MessageProps> = ({ message, personas }) => {
         <span className="text-xs text-muted-foreground mt-1 ml-2">
           {persona?.name} • {format(message.timestamp, "h:mm a")}
         </span>
+        
+        <AlertDialog open={dialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Add Code to Panel?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Would you like to add this code to the coding panel?
+                <pre className="mt-4 p-4 bg-muted rounded-lg overflow-auto max-h-[200px]">
+                  <code>{currentCode}</code>
+                </pre>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDialogOpen(false)}>
+                No, Thanks
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirm}>
+                Yes, Add Code
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -149,11 +149,26 @@ export async function generateAIResponse({
       // Check if this is a response to a code confirmation
       const isConfirmation = /^(yes|y|sure|okay|ok|yep|yeah)/i.test(text.trim());
       const previousMessage = chatHistories[threadId]?.slice(-1)[0]?.text;
-      const wasAskingForConfirmation = previousMessage?.includes("Would you like me to show you the code solution?");
+      const wasAskingAboutCodePanel = previousMessage?.includes("Would you like me to add this code to the coding panel?");
+      const wasAskingForSolution = previousMessage?.includes("Would you like me to show you the code solution?");
 
-      if (wasAskingForConfirmation) {
+      if (wasAskingAboutCodePanel) {
+        if (isConfirmation) {
+          formattedText = `Adding the code to the coding panel:
+
+[CODE_PANEL_START]
+${chatHistories[threadId].slice(-2)[0].text.match(/```[\s\S]*?```/)?.[0] || ''}
+[CODE_PANEL_END]
+
+Let me know if you need any modifications or have questions about the code!`;
+        } else {
+          formattedText = `No problem! The code is still available in our chat if you need it later. Let me know if you have any questions about the solution.`;
+        }
+      } else if (wasAskingForSolution) {
         if (isConfirmation) {
           formattedText = `
+Here's the solution:
+
 CODING TASK ANALYSIS:
 Previous Query: "${chatHistories[threadId].slice(-2)[0].text}"
 Detected Language: ${language || 'Not specified, please infer from context'}
@@ -206,6 +221,20 @@ This way, I can either provide you with the complete code solution or explain th
       });
 
       reply = retryResponse.text || reply;
+    }
+
+    // If the response contains code and we haven't asked about the code panel yet
+    if (reply.includes("```") && !reply.includes("[CODE_PANEL_") && 
+        !reply.includes("Would you like me to add this code") &&
+        !reply.includes("Would you like me to show you the code solution?")) {
+      // Store the code response
+      const codeResponse = reply;
+      // Ask about adding to code panel
+      reply = `Here's the solution I came up with:
+
+${codeResponse}
+
+Would you like me to add this code to the coding panel? (yes/no)`;
     }
 
     chatHistories[threadId].push({ speaker: "Assistant", text: reply });
